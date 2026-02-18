@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0c1220">
+<title>ChatBack — Symptom Check & Provider Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#fafbfd;--surface:#fff;--text:#0f172a;--text-2:#475569;--text-3:#94a3b8;
+  --border:#e2e8f0;--accent:#4f46e5;--accent-light:#eef2ff;--accent-glow:rgba(79,70,229,0.12);
+  --green:#059669;--green-bg:#ecfdf5;--green-border:#a7f3d0;
+  --blue:#2563eb;--blue-bg:#eff6ff;--blue-border:#bfdbfe;
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --gold:#b45309;--gold-bg:linear-gradient(135deg,#fffbeb,#fef3c7);
+  --radius:16px;--shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg:0 8px 30px rgba(0,0,0,0.08);
+}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);
+  line-height:1.55;-webkit-font-smoothing:antialiased;
+}
+/* App shell */
+#app{
+  max-width:480px;margin:0 auto;height:100vh;height:100dvh;
+  display:flex;flex-direction:column;background:var(--surface);
+  position:relative;overflow:hidden;
+  box-shadow:0 0 60px rgba(0,0,0,0.05);
+}
+.screen{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  overflow-y:auto;overflow-x:hidden;
+  opacity:0;transform:translateX(30px);pointer-events:none;
+  transition:opacity 0.3s ease,transform 0.3s ease;
+  -webkit-overflow-scrolling:touch;
+}
+.screen.active{opacity:1;transform:translateX(0);pointer-events:all}
+.screen.exit{opacity:0;transform:translateX(-30px)}
+
+/* Scroll area */
+.scroll-content{flex:1;overflow-y:auto;padding:0 24px 40px;-webkit-overflow-scrolling:touch}
+
+/* Header bar */
+.topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 24px 12px;flex-shrink:0;
+  background:var(--surface);position:sticky;top:0;z-index:10;
+}
+.back-btn{
+  width:36px;height:36px;border-radius:12px;border:1.5px solid var(--border);
+  background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;flex-shrink:0;
+}
+.back-btn:hover{background:var(--bg);border-color:#cbd5e1}
+.back-btn svg{width:18px;height:18px;color:var(--text-2)}
+.topbar-title{font-size:15px;font-weight:600;color:var(--text-2)}
+
+/* Progress */
+.progress-track{height:3px;background:var(--border);border-radius:2px;margin:0 24px 20px}
+.progress-fill{height:3px;background:linear-gradient(90deg,var(--accent),#7c3aed);border-radius:2px;transition:width 0.5s cubic-bezier(.4,0,.2,1)}
+
+/* Typography */
+.step-label{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px}
+.screen-title{font-size:26px;font-weight:800;color:var(--text);line-height:1.2;letter-spacing:-0.5px;margin-bottom:6px}
+.screen-subtitle{font-size:14px;color:var(--text-2);line-height:1.5;margin-bottom:28px}
+
+/* Cards / Buttons */
+.option-card{
+  display:flex;align-items:center;gap:16px;width:100%;
+  padding:18px 20px;border-radius:var(--radius);
+  border:2px solid var(--border);background:var(--surface);
+  cursor:pointer;text-align:left;transition:all 0.15s;margin-bottom:10px;
+}
+.option-card:hover,.option-card:active{border-color:var(--accent);background:var(--accent-light)}
+.option-card .icon{font-size:28px;flex-shrink:0;width:40px;text-align:center}
+.option-card .label{font-size:15px;font-weight:600;color:var(--text)}
+.option-card .arrow{margin-left:auto;color:var(--text-3);flex-shrink:0}
+.option-card .arrow svg{width:18px;height:18px}
+
+.answer-btn{
+  width:100%;padding:16px 20px;border-radius:14px;
+  border:2px solid var(--border);background:var(--surface);
+  cursor:pointer;text-align:left;font-size:15px;font-weight:500;color:var(--text);
+  transition:all 0.15s;margin-bottom:10px;
+}
+.answer-btn:hover,.answer-btn:active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+
+/* Checkbox style */
+.check-item{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 18px;border-radius:14px;cursor:pointer;
+  border:2px solid var(--border);background:var(--surface);
+  transition:all 0.15s;margin-bottom:8px;user-select:none;
+}
+.check-item.checked{border-color:var(--accent);background:var(--accent-light)}
+.check-box{
+  width:22px;height:22px;border-radius:7px;flex-shrink:0;
+  border:2px solid #cbd5e1;display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;
+}
+.check-item.checked .check-box{background:var(--accent);border-color:var(--accent)}
+.check-box svg{width:14px;height:14px;color:#fff;opacity:0;transition:opacity 0.15s}
+.check-item.checked .check-box svg{opacity:1}
+.check-label{font-size:14px;font-weight:500;color:var(--text)}
+.flag-icon{margin-left:auto;color:var(--amber);flex-shrink:0}
+.flag-icon svg{width:14px;height:14px}
+
+/* Primary button */
+.primary-btn{
+  width:100%;padding:18px 24px;border-radius:var(--radius);border:none;
+  background:var(--accent);color:#fff;font-size:16px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;box-shadow:0 4px 16px var(--accent-glow);
+  letter-spacing:0.2px;
+}
+.primary-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(79,70,229,0.25)}
+.primary-btn:active{transform:translateY(0)}
+.primary-btn:disabled{opacity:0.5;cursor:default;transform:none;box-shadow:none}
+
+/* ZIP input */
+.zip-row{display:flex;gap:10px;margin-bottom:24px}
+.zip-input{
+  flex:1;padding:14px 16px 14px 44px;border-radius:14px;
+  border:2px solid var(--border);font-size:15px;outline:none;
+  font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);
+  transition:border-color 0.2s;
+}
+.zip-input:focus{border-color:var(--accent)}
+.zip-input::placeholder{color:var(--text-3)}
+.zip-wrap{position:relative;flex:1}
+.zip-wrap svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-3)}
+.zip-btn{
+  padding:14px 20px;border-radius:14px;border:none;
+  background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all 0.15s;white-space:nowrap;
+}
+.zip-btn:hover{background:#4338ca}
+.zip-status{font-size:13px;color:var(--text-2);margin:-16px 0 20px;display:flex;align-items:center;gap:6px}
+.zip-status svg{width:14px;height:14px}
+.zip-status.error{color:var(--red)}
+.zip-status.success{color:var(--green)}
+
+/* Risk card */
+.risk-card{
+  border-radius:20px;padding:24px;margin-bottom:24px;
+  border:2px solid transparent;
+}
+.risk-card.level-0{background:var(--green-bg);border-color:var(--green-border)}
+.risk-card.level-1{background:var(--blue-bg);border-color:var(--blue-border)}
+.risk-card.level-2{background:var(--amber-bg);border-color:var(--amber-border)}
+.risk-card.level-3{background:var(--red-bg);border-color:var(--red-border)}
+.risk-badge{
+  display:inline-flex;padding:5px 14px;border-radius:10px;
+  font-size:12px;font-weight:800;letter-spacing:0.5px;color:#fff;margin-bottom:12px;
+}
+.level-0 .risk-badge{background:var(--green)}
+.level-1 .risk-badge{background:var(--blue)}
+.level-2 .risk-badge{background:var(--amber)}
+.level-3 .risk-badge{background:var(--red)}
+.risk-title{font-size:20px;font-weight:800;margin-bottom:8px}
+.level-0 .risk-title{color:#065f46}
+.level-1 .risk-title{color:#1e40af}
+.level-2 .risk-title{color:#92400e}
+.level-3 .risk-title{color:#991b1b}
+.risk-desc{font-size:14px;line-height:1.6;opacity:0.85}
+.level-0 .risk-desc{color:#065f46}
+.level-1 .risk-desc{color:#1e40af}
+.level-2 .risk-desc{color:#92400e}
+.level-3 .risk-desc{color:#991b1b}
+.flags-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(0,0,0,0.06)}
+.flag-tag{padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(0,0,0,0.06)}
+
+/* Provider card */
+.provider-card{
+  border:2px solid var(--border);border-radius:18px;padding:20px;
+  margin-bottom:12px;background:var(--surface);transition:all 0.15s;position:relative;
+}
+.provider-card.premium{border-color:#fde68a;background:linear-gradient(135deg,#fffbeb,#fff)}
+.featured-badge{
+  position:absolute;top:12px;right:12px;
+  padding:4px 10px;border-radius:8px;font-size:10px;font-weight:800;
+  background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;
+  letter-spacing:0.5px;text-transform:uppercase;
+}
+.provider-name{font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px;padding-right:80px}
+.provider-specialty{font-size:13px;font-weight:600;color:var(--accent);margin-bottom:12px}
+.provider-meta{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--text-2);margin-bottom:14px}
+.provider-meta span{display:flex;align-items:center;gap:4px}
+.provider-meta svg{width:13px;height:13px}
+.match-badge{
+  display:inline-flex;padding:3px 10px;border-radius:6px;
+  background:var(--green-bg);color:var(--green);font-size:11px;font-weight:700;
+  margin-bottom:14px;
+}
+.distance-badge{
+  display:inline-flex;padding:3px 10px;border-radius:6px;
+  background:var(--accent-light);color:var(--accent);font-size:11px;font-weight:700;
+  margin-bottom:14px;margin-left:6px;
+}
+.referral-btn{
+  width:100%;padding:14px;border-radius:14px;border:none;
+  background:var(--accent);color:#fff;font-size:15px;font-weight:700;
+  cursor:pointer;transition:all 0.15s;
+}
+.referral-btn:hover{background:#4338ca;transform:translateY(-1px)}
+.provider-card.premium .referral-btn{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.provider-card.premium .referral-btn:hover{background:linear-gradient(135deg,#d97706,#b45309)}
+
+/* No results */
+.no-results{text-align:center;padding:40px 20px;color:var(--text-2)}
+.no-results svg{width:48px;height:48px;color:var(--text-3);margin-bottom:16px}
+
+/* Confirmation */
+.confirm-icon{
+  width:80px;height:80px;border-radius:50%;background:var(--green-bg);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 24px;
+}
+.confirm-icon svg{width:40px;height:40px;color:var(--green)}
+.confirm-card{
+  background:var(--bg);border:2px solid var(--border);border-radius:18px;
+  padding:24px;margin-bottom:24px;
+}
+.confirm-card h3{font-size:17px;font-weight:700;margin-bottom:2px}
+.confirm-card .spec{font-size:13px;color:var(--accent);font-weight:600;margin-bottom:16px}
+.confirm-detail{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-2);margin-bottom:10px}
+.confirm-detail svg{width:16px;height:16px;color:var(--text-3);flex-shrink:0}
+.tip-box{
+  background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:14px;
+  padding:16px;margin-bottom:24px;
+}
+.tip-box p{font-size:13px;color:#1e40af;font-weight:500;line-height:1.5}
+.outline-btn{
+  width:100%;padding:16px;border-radius:14px;border:2px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:15px;font-weight:700;
+  cursor:pointer;transition:all 0.15s;
+}
+.outline-btn:hover{background:var(--bg);border-color:#cbd5e1}
+
+/* Welcome screen */
+.welcome-bg{
+  min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;
+  justify-content:center;padding:32px;
+  background:linear-gradient(170deg,#0c1220 0%,#162032 40%,#0c1220 100%);
+  position:relative;overflow:hidden;
+}
+.welcome-bg::before{
+  content:'';position:absolute;width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,rgba(79,70,229,0.15),transparent 70%);
+  top:-100px;right:-100px;
+}
+.welcome-bg::after{
+  content:'';position:absolute;width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(circle,rgba(34,211,238,0.1),transparent 70%);
+  bottom:-50px;left:-80px;
+}
+.welcome-logo{
+  width:68px;height:68px;border-radius:20px;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 28px;box-shadow:0 8px 32px rgba(79,70,229,0.4);
+  position:relative;z-index:1;
+}
+.welcome-logo svg{width:34px;height:34px;color:#fff}
+.welcome-title{
+  font-family:'Instrument Serif',serif;font-size:42px;font-weight:400;
+  color:#f1f5f9;text-align:center;letter-spacing:-1px;margin-bottom:12px;
+  position:relative;z-index:1;
+}
+.welcome-sub{
+  font-size:15px;color:#94a3b8;text-align:center;max-width:300px;
+  margin:0 auto 40px;line-height:1.6;position:relative;z-index:1;
+}
+.welcome-features{display:flex;flex-direction:column;gap:10px;margin-bottom:40px;position:relative;z-index:1}
+.wf-item{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 18px;border-radius:14px;
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);
+}
+.wf-item svg{width:18px;height:18px;flex-shrink:0}
+.wf-item span{color:#cbd5e1;font-size:14px;font-weight:500}
+.welcome-start{
+  width:100%;padding:18px;border-radius:var(--radius);border:none;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;
+  font-size:17px;font-weight:700;cursor:pointer;position:relative;z-index:1;
+  box-shadow:0 4px 24px rgba(79,70,229,0.4);letter-spacing:0.3px;transition:all 0.2s;
+}
+.welcome-start:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(79,70,229,0.5)}
+.welcome-disclaimer{
+  text-align:center;color:#475569;font-size:11px;margin-top:20px;
+  line-height:1.6;position:relative;z-index:1;
+}
+
+/* Star rating */
+.star{color:#f59e0b}
+
+/* Animations */
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.animate-in > *{animation:slideUp 0.4s ease both}
+.animate-in > *:nth-child(1){animation-delay:0.05s}
+.animate-in > *:nth-child(2){animation-delay:0.1s}
+.animate-in > *:nth-child(3){animation-delay:0.15s}
+.animate-in > *:nth-child(4){animation-delay:0.2s}
+.animate-in > *:nth-child(5){animation-delay:0.25s}
+.animate-in > *:nth-child(6){animation-delay:0.3s}
+.animate-in > *:nth-child(7){animation-delay:0.35s}
+.animate-in > *:nth-child(8){animation-delay:0.4s}
+
+/* Loading spinner */
+.spinner{width:20px;height:20px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Responsive */
+@media(min-width:481px){
+  #app{border-left:1px solid var(--border);border-right:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// =============================================================
+// CHATBACK — Full Web Application
+// Zip code aware, location-based provider matching
+// =============================================================
+
+// ---- ZIP CODE DATABASE (US coverage, key metro areas) ----
+const ZIP_DATABASE = {
+  // Florida
+  "32771":{city:"Sanford",state:"FL",lat:28.8003,lng:-81.2731},"32801":{city:"Orlando",state:"FL",lat:28.5383,lng:-81.3792},
+  "32803":{city:"Orlando",state:"FL",lat:28.5562,lng:-81.3563},"32806":{city:"Orlando",state:"FL",lat:28.5172,lng:-81.3728},
+  "32819":{city:"Orlando",state:"FL",lat:28.4718,lng:-81.4745},"32836":{city:"Orlando",state:"FL",lat:28.3897,lng:-81.5159},
+  "33101":{city:"Miami",state:"FL",lat:25.7617,lng:-80.1918},"33109":{city:"Miami Beach",state:"FL",lat:25.7537,lng:-80.1328},
+  "33131":{city:"Miami",state:"FL",lat:25.7648,lng:-80.1876},"33139":{city:"Miami Beach",state:"FL",lat:25.7862,lng:-80.1341},
+  "33301":{city:"Fort Lauderdale",state:"FL",lat:26.1224,lng:-80.1373},"33401":{city:"West Palm Beach",state:"FL",lat:26.7153,lng:-80.0534},
+  "33601":{city:"Tampa",state:"FL",lat:27.9506,lng:-82.4572},"33701":{city:"St Petersburg",state:"FL",lat:27.7676,lng:-82.6413},
+  "32081":{city:"Ponte Vedra",state:"FL",lat:30.1019,lng:-81.3856},"32216":{city:"Jacksonville",state:"FL",lat:30.2844,lng:-81.5463},
+  "32746":{city:"Lake Mary",state:"FL",lat:28.7589,lng:-81.3178},"32750":{city:"Longwood",state:"FL",lat:28.7031,lng:-81.3384},
+  "32707":{city:"Casselberry",state:"FL",lat:28.6609,lng:-81.3281},"32714":{city:"Altamonte Springs",state:"FL",lat:28.6611,lng:-81.3656},
+  "34747":{city:"Kissimmee",state:"FL",lat:28.3108,lng:-81.5905},
+  // New York
+  "10001":{city:"New York",state:"NY",lat:40.7484,lng:-73.9967},"10011":{city:"New York",state:"NY",lat:40.7418,lng:-74.0002},
+  "10013":{city:"New York",state:"NY",lat:40.7209,lng:-74.0048},"10016":{city:"New York",state:"NY",lat:40.7459,lng:-73.9781},
+  "10019":{city:"New York",state:"NY",lat:40.7654,lng:-73.9855},"10021":{city:"New York",state:"NY",lat:40.7690,lng:-73.9586},
+  "10028":{city:"New York",state:"NY",lat:40.7764,lng:-73.9539},"10036":{city:"New York",state:"NY",lat:40.7590,lng:-73.9891},
+  "10065":{city:"New York",state:"NY",lat:40.7649,lng:-73.9632},"11201":{city:"Brooklyn",state:"NY",lat:40.6935,lng:-73.9897},
+  "11211":{city:"Brooklyn",state:"NY",lat:40.7128,lng:-73.9535},"11101":{city:"Queens",state:"NY",lat:40.7477,lng:-73.9233},
+  // California
+  "90001":{city:"Los Angeles",state:"CA",lat:33.9425,lng:-118.2551},"90015":{city:"Los Angeles",state:"CA",lat:34.0382,lng:-118.2638},
+  "90024":{city:"Los Angeles",state:"CA",lat:34.0634,lng:-118.4294},"90036":{city:"Los Angeles",state:"CA",lat:34.0703,lng:-118.3525},
+  "90046":{city:"Los Angeles",state:"CA",lat:34.1083,lng:-118.3633},"90048":{city:"Los Angeles",state:"CA",lat:34.0752,lng:-118.3708},
+  "90210":{city:"Beverly Hills",state:"CA",lat:34.0901,lng:-118.4065},"90291":{city:"Venice",state:"CA",lat:33.9925,lng:-118.4597},
+  "90401":{city:"Santa Monica",state:"CA",lat:34.0195,lng:-118.4912},"94102":{city:"San Francisco",state:"CA",lat:37.7813,lng:-122.4167},
+  "94103":{city:"San Francisco",state:"CA",lat:37.7726,lng:-122.4099},"94105":{city:"San Francisco",state:"CA",lat:37.7886,lng:-122.3934},
+  "94110":{city:"San Francisco",state:"CA",lat:37.7488,lng:-122.4153},"92101":{city:"San Diego",state:"CA",lat:32.7191,lng:-117.1628},
+  // Texas
+  "75201":{city:"Dallas",state:"TX",lat:32.7889,lng:-96.7995},"75202":{city:"Dallas",state:"TX",lat:32.7813,lng:-96.8015},
+  "77001":{city:"Houston",state:"TX",lat:29.7545,lng:-95.3533},"77002":{city:"Houston",state:"TX",lat:29.7544,lng:-95.3625},
+  "78201":{city:"San Antonio",state:"TX",lat:29.4679,lng:-98.5254},"73301":{city:"Austin",state:"TX",lat:30.3266,lng:-97.7717},
+  // Illinois
+  "60601":{city:"Chicago",state:"IL",lat:41.8862,lng:-87.6186},"60602":{city:"Chicago",state:"IL",lat:41.8834,lng:-87.6317},
+  "60611":{city:"Chicago",state:"IL",lat:41.8929,lng:-87.6243},"60614":{city:"Chicago",state:"IL",lat:41.9218,lng:-87.6488},
+  // Others
+  "30301":{city:"Atlanta",state:"GA",lat:33.7537,lng:-84.3863},"30303":{city:"Atlanta",state:"GA",lat:33.7544,lng:-84.3899},
+  "02101":{city:"Boston",state:"MA",lat:42.3706,lng:-71.0268},"02102":{city:"Boston",state:"MA",lat:42.3389,lng:-71.0474},
+  "20001":{city:"Washington",state:"DC",lat:38.9101,lng:-77.0147},"20002":{city:"Washington",state:"DC",lat:38.9050,lng:-76.9887},
+  "85001":{city:"Phoenix",state:"AZ",lat:33.4484,lng:-112.0740},"98101":{city:"Seattle",state:"WA",lat:47.6062,lng:-122.3321},
+  "80201":{city:"Denver",state:"CO",lat:39.7392,lng:-104.9903},"37201":{city:"Nashville",state:"TN",lat:36.1627,lng:-86.7816},
+  "28201":{city:"Charlotte",state:"NC",lat:35.2271,lng:-80.8431},"48201":{city:"Detroit",state:"MI",lat:42.3314,lng:-83.0458},
+  "55401":{city:"Minneapolis",state:"MN",lat:44.9778,lng:-93.2650},"97201":{city:"Portland",state:"OR",lat:45.5152,lng:-122.6784},
+  "89101":{city:"Las Vegas",state:"NV",lat:36.1699,lng:-115.1398},
+};
+
+// Fuzzy zip lookup: try exact, then first 3 digits for region match
+function lookupZip(zip) {
+  zip = zip.replace(/\s/g,'').substring(0,5);
+  if (ZIP_DATABASE[zip]) return ZIP_DATABASE[zip];
+  // Try prefix match
+  const prefix = zip.substring(0,3);
+  const match = Object.keys(ZIP_DATABASE).find(z => z.startsWith(prefix));
+  if (match) return {...ZIP_DATABASE[match], approximate: true};
+  return null;
+}
+
+// ---- PROVIDER DATABASE (region-seeded) ----
+function generateProviders(lat, lng, state) {
+  // Generate realistic providers near the given location
+  const templates = {
+    ortho: [
+      {base:"Advanced Orthopedic",spec:"Orthopedics",accepts:["Orthopedics","Orthopedic Surgery","Sports Medicine"]},
+      {base:"Precision Spine & Joint",spec:"Orthopedic Spine",accepts:["Orthopedic Spine","Orthopedics","Pain Management"]},
+      {base:"Elite Sports Medicine",spec:"Sports Medicine",accepts:["Sports Medicine","Orthopedics"]},
+      {base:"Summit Orthopedic Group",spec:"Orthopedic Surgery",accepts:["Orthopedic Surgery","Orthopedics","Sports Medicine"]},
+    ],
+    pt: [
+      {base:"ActiveLife Physical Therapy",spec:"Physical Therapy",accepts:["Physical Therapy"]},
+      {base:"ProMotion Rehab",spec:"Physical Therapy",accepts:["Physical Therapy","Sports Medicine"]},
+      {base:"Peak Performance PT",spec:"Physical Therapy",accepts:["Physical Therapy"]},
+    ],
+    pain: [
+      {base:"Regional Pain Management",spec:"Pain Management",accepts:["Pain Management","Primary Care"]},
+      {base:"Comprehensive Pain Center",spec:"Pain Management",accepts:["Pain Management"]},
+    ],
+    neuro: [
+      {base:"NeuroSpine Institute",spec:"Neurology",accepts:["Neurology","Orthopedic Spine","Pain Management"]},
+    ],
+    urgent: [
+      {base:"CityWalk Urgent Ortho",spec:"Orthopedics",accepts:["Orthopedics","Emergency Medicine","Sports Medicine"]},
+    ],
+    primary: [
+      {base:"Family Health Partners",spec:"Primary Care",accepts:["Primary Care"]},
+    ]
+  };
+
+  const suffixes = ["Center","Associates","Clinic","Partners","Institute","Group","of "+state];
+  const avails = ["Walk-in","Same day","Next day","2-3 days","3-5 days","1 week"];
+  const tiers = ["premium","premium","basic","basic","basic","free","free"];
+
+  const allTemplates = [...templates.ortho,...templates.pt,...templates.pain,...templates.neuro,...templates.urgent,...templates.primary];
+  const providers = [];
+
+  allTemplates.forEach((t, i) => {
+    // Scatter around the user's location
+    const angle = (i / allTemplates.length) * Math.PI * 2 + (Math.random()-0.5);
+    const dist = 0.01 + Math.random() * 0.06; // ~0.7 to 4 miles
+    const pLat = lat + Math.cos(angle) * dist;
+    const pLng = lng + Math.sin(angle) * dist;
+    const tier = tiers[i % tiers.length];
+    const rateMap = {premium: 35+Math.floor(Math.random()*30), basic: 15+Math.floor(Math.random()*20), free: 0};
+
+    providers.push({
+      id: i+1,
+      name: t.base + " " + suffixes[i % suffixes.length],
+      specialty: t.spec,
+      accepts: t.accepts,
+      lat: pLat, lng: pLng,
+      rating: (4.0 + Math.random()*0.9).toFixed(1),
+      reviews: 50 + Math.floor(Math.random()*300),
+      availability: avails[Math.min(i % avails.length, avails.length-1)],
+      tier: tier,
+      perReferral: rateMap[tier],
+    });
+  });
+
+  return providers;
+}
+
+// ---- DISTANCE CALC ----
+function haversine(lat1,lng1,lat2,lng2){
+  const R=3959,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ---- TRIAGE ENGINE ----
+function runTriage(region, symptoms, flags) {
+  const activeFlags = [];
+  if (flags.bowel) activeFlags.push("Bowel/bladder changes");
+  if (flags.neuro) activeFlags.push("Neurological symptoms");
+  if (flags.fever) activeFlags.push("Fever/systemic symptoms");
+  if (flags.weight) activeFlags.push("Unexplained weight loss");
+  if (flags.night_pain) activeFlags.push("Night pain");
+  if (flags.worsening) activeFlags.push("Progressive worsening");
+  if (symptoms.trauma === "major") activeFlags.push("Significant trauma");
+
+  let level, label, desc, action, specialties;
+  const isSpine = region==='back'||region==='neck';
+
+  if (flags.bowel || (flags.neuro && flags.fever)) {
+    level=3; label="Emergency";
+    desc="Your symptom combination includes signs that need immediate medical evaluation.";
+    action="Please visit your nearest emergency room or call 911.";
+    specialties=["Emergency Medicine"];
+  } else if ((flags.neuro&&symptoms.trauma==="major")||(flags.fever&&flags.weight)||(flags.neuro&&symptoms.severity==="severe")) {
+    level=2; label="Urgent";
+    desc="Your symptoms suggest you should be seen within 24–48 hours.";
+    action="We recommend scheduling an urgent appointment with a specialist below.";
+    specialties=isSpine?["Orthopedic Spine","Neurology"]:["Orthopedic Surgery","Sports Medicine"];
+  } else if (activeFlags.length>=2||symptoms.severity==="severe"||symptoms.trauma==="major"||(symptoms.duration==="months"&&symptoms.severity==="moderate")) {
+    level=1; label="Routine Evaluation";
+    desc="Your symptoms would benefit from a professional evaluation at your convenience.";
+    action="We've matched you with qualified providers in your area.";
+    specialties=isSpine?["Orthopedics","Physical Therapy","Pain Management"]:["Orthopedics","Sports Medicine","Physical Therapy"];
+  } else {
+    level=0; label="Self-Care";
+    desc="Your symptoms are consistent with a low-risk profile. Self-care strategies may help.";
+    action="We can still connect you with providers if you'd like professional guidance.";
+    specialties=["Physical Therapy","Primary Care"];
+  }
+
+  return { level, label, desc, action, flags: activeFlags, specialties, region };
+}
+
+// ---- REFERRAL SCORING ----
+function scoreAndRank(providers, triage, userLat, userLng) {
+  const W = { proximity:0.30, specialty:0.20, availability:0.10, tier:0.25, quality:0.15 };
+  const availMap = {"Walk-in":1,"Same day":0.95,"Next day":0.8,"2-3 days":0.6,"3-5 days":0.4,"1 week":0.2};
+  const tierMap = {premium:1, basic:0.5, free:0.1};
+
+  return providers.map(p => {
+    const dist = haversine(userLat, userLng, p.lat, p.lng);
+    const proxScore = Math.max(0, (25-dist)/25);
+    const specMatch = triage.specialties.some(s => p.accepts.includes(s));
+    const availScore = availMap[p.availability]||0.3;
+    const tierScore = tierMap[p.tier]||0;
+    const qualScore = parseFloat(p.rating)/5;
+
+    const total = proxScore*W.proximity + (specMatch?1:0)*W.specialty + availScore*W.availability + tierScore*W.tier + qualScore*W.quality;
+
+    return {...p, score:Math.round(total*100), distance:dist.toFixed(1), isMatch:specMatch};
+  }).filter(p=>p.isMatch).sort((a,b)=>b.score-a.score);
+}
+
+// ---- SVG ICONS ----
+const icons = {
+  activity: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+  zap: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  mapPin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+  chevRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  chevLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  alert: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  star: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  clock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  frown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`,
+};
+
+// ---- APP STATE ----
+const state = {
+  screen: 'welcome',
+  region: null,
+  currentQ: 0,
+  symptoms: {},
+  redFlags: {},
+  triage: null,
+  providers: [],
+  zipcode: '',
+  zipLocation: null,
+  zipStatus: null,
+  selectedProvider: null,
+};
+
+const REGIONS = [
+  {id:"back",label:"Lower Back",icon:"🔙",color:"#22d3ee"},
+  {id:"neck",label:"Neck",icon:"🦴",color:"#a78bfa"},
+  {id:"knee",label:"Knee",icon:"🦵",color:"#34d399"},
+  {id:"hip",label:"Hip",icon:"🦿",color:"#fbbf24"},
+  {id:"shoulder",label:"Shoulder",icon:"💪",color:"#f472b6"},
+];
+
+const QUESTIONS = [
+  {id:"onset",q:"How did your symptoms begin?",opts:[{v:"gradual",l:"Gradually over time"},{v:"acute",l:"Suddenly / after an incident"}]},
+  {id:"duration",q:"How long have you had symptoms?",opts:[{v:"days",l:"A few days"},{v:"weeks",l:"1–4 weeks"},{v:"months",l:"More than a month"}]},
+  {id:"severity",q:"How would you rate your pain?",opts:[{v:"mild",l:"Mild — noticeable but manageable"},{v:"moderate",l:"Moderate — affecting daily activities"},{v:"severe",l:"Severe — significantly limiting"}]},
+  {id:"trauma",q:"Any recent injury or trauma?",opts:[{v:"no",l:"No injury"},{v:"minor",l:"Minor bump or twist"},{v:"major",l:"Fall, accident, or significant impact"}]},
+];
+
+const RED_FLAGS = [
+  {id:"neuro",label:"Numbness, tingling, or weakness in arms/legs",critical:true},
+  {id:"bowel",label:"Changes in bowel or bladder control",critical:true},
+  {id:"fever",label:"Fever or night sweats",critical:true},
+  {id:"weight",label:"Unexplained weight loss",critical:true},
+  {id:"night_pain",label:"Pain that wakes you at night",critical:false},
+  {id:"worsening",label:"Symptoms getting progressively worse",critical:false},
+];
+
+// ---- RENDER ----
+function render() {
+  const app = document.getElementById('app');
+  let html = '';
+
+  // Welcome
+  html += `<div class="screen ${state.screen==='welcome'?'active':''}">
+    <div class="welcome-bg">
+      <div class="welcome-logo">${icons.activity}</div>
+      <h1 class="welcome-title">ChatBack</h1>
+      <p class="welcome-sub">Understand your symptoms. Find the right provider. Get moving again.</p>
+      <div class="welcome-features">
+        <div class="wf-item"><span style="color:#22d3ee">${icons.zap}</span><span>Instant symptom assessment</span></div>
+        <div class="wf-item"><span style="color:#34d399">${icons.shield}</span><span>100% anonymous — no personal info needed</span></div>
+        <div class="wf-item"><span style="color:#a78bfa">${icons.mapPin}</span><span>Matched to top-rated local providers</span></div>
+      </div>
+      <button class="welcome-start" onclick="go('region')">Start Symptom Check</button>
+      <p class="welcome-disclaimer">This tool provides educational information only and is not a medical diagnosis. Always consult a healthcare professional.</p>
+    </div>
+  </div>`;
+
+  // Region
+  html += `<div class="screen ${state.screen==='region'?'active':''}">
+    <div class="topbar"><div class="topbar-title">ChatBack</div></div>
+    <div class="scroll-content animate-in">
+      <div class="step-label">Step 1 of 4</div>
+      <h2 class="screen-title">Where are you experiencing symptoms?</h2>
+      <p class="screen-subtitle">Select the area that best describes your concern.</p>
+      ${REGIONS.map(r => `
+        <div class="option-card" onclick="selectRegion('${r.id}')">
+          <span class="icon">${r.icon}</span>
+          <span class="label">${r.label}</span>
+          <span class="arrow">${icons.chevRight}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+
+  // Symptoms
+  const q = QUESTIONS[state.currentQ];
+  const regionInfo = REGIONS.find(r => r.id === state.region);
+  const progress = ((state.currentQ + 1) / (QUESTIONS.length + 1)) * 100;
+  html += `<div class="screen ${state.screen==='symptoms'?'active':''}">
+    <div class="topbar">
+      <button class="back-btn" onclick="symptomBack()">${icons.chevLeft}</button>
+      <div class="topbar-title">${regionInfo ? regionInfo.icon + ' ' + regionInfo.label : ''}</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+    <div class="scroll-content animate-in" id="symptom-content">
+      <div class="step-label">Question ${state.currentQ+1} of ${QUESTIONS.length}</div>
+      <h2 class="screen-title">${q ? q.q : ''}</h2>
+      <div style="height:16px"></div>
+      ${q ? q.opts.map(o => `
+        <button class="answer-btn" onclick="answerSymptom('${o.v}')">${o.l}</button>
+      `).join('') : ''}
+    </div>
+  </div>`;
+
+  // Red flags
+  const rfProgress = 80;
+  html += `<div class="screen ${state.screen==='redflags'?'active':''}">
+    <div class="topbar">
+      <button class="back-btn" onclick="rfBack()">${icons.chevLeft}</button>
+      <div class="topbar-title">Additional Symptoms</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width:${rfProgress}%"></div></div>
+    <div class="scroll-content animate-in">
+      <h2 class="screen-title">Any of these apply?</h2>
+      <p class="screen-subtitle">Check all that apply. These help prioritize your assessment.</p>
+      ${RED_FLAGS.map(f => `
+        <div class="check-item ${state.redFlags[f.id]?'checked':''}" onclick="toggleFlag('${f.id}')">
+          <div class="check-box">${icons.check}</div>
+          <span class="check-label">${f.label}</span>
+          ${f.critical ? `<span class="flag-icon">${icons.alert}</span>` : ''}
+        </div>
+      `).join('')}
+      <div style="height:16px"></div>
+      <button class="primary-btn" onclick="getResults()">Get My Results</button>
+    </div>
+  </div>`;
+
+  // Results
+  const t = state.triage;
+  html += `<div class="screen ${state.screen==='results'?'active':''}">
+    <div class="topbar">
+      <button class="back-btn" onclick="go('redflags')">${icons.chevLeft}</button>
+      <div class="topbar-title">Your Results</div>
+    </div>
+    <div class="scroll-content" id="results-content">
+    ${t ? `
+      <div class="risk-card level-${t.level}">
+        <div class="risk-badge">LEVEL ${t.level}</div>
+        <div class="risk-title">${t.label}</div>
+        <p class="risk-desc">${t.desc}</p>
+        <p class="risk-desc" style="font-weight:600;margin-top:8px">${t.action}</p>
+        ${t.flags.length ? `
+          <div class="flags-row">
+            ${t.flags.map(f => `<span class="flag-tag">${f}</span>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+      ${t.level < 3 ? `
+        <h3 style="font-size:18px;font-weight:800;margin-bottom:4px">Recommended Providers</h3>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:20px">Enter your ZIP code to find providers near you</p>
+        <div class="zip-row">
+          <div class="zip-wrap">
+            ${icons.mapPin}
+            <input class="zip-input" id="zip-input" type="text" inputmode="numeric" maxlength="5"
+              placeholder="Enter ZIP code" value="${state.zipcode}"
+              onkeydown="if(event.key==='Enter')searchZip()"
+              oninput="state.zipcode=this.value">
+          </div>
+          <button class="zip-btn" onclick="searchZip()" id="zip-btn">
+            ${icons.search} Find
+          </button>
+        </div>
+        ${state.zipStatus==='error' ? `<p class="zip-status error">${icons.alert} ZIP code not found. Try a nearby city's ZIP.</p>` : ''}
+        ${state.zipStatus==='success' ? `<p class="zip-status success">${icons.check} Showing providers near ${state.zipLocation.city}, ${state.zipLocation.state}${state.zipLocation.approximate?' (approximate)':''}</p>` : ''}
+        <div id="providers-list">
+          ${state.providers.length===0 && state.zipStatus==='success' ? `
+            <div class="no-results">${icons.frown}<p>No matching providers found in this area. Try a different ZIP code.</p></div>
+          ` : ''}
+          ${state.providers.map((p,i) => `
+            <div class="provider-card ${p.tier==='premium'?'premium':''}">
+              ${p.tier==='premium'?'<div class="featured-badge">Featured</div>':''}
+              <div class="provider-name">${p.name}</div>
+              <div class="provider-specialty">${p.specialty}</div>
+              <div class="provider-meta">
+                <span>${icons.mapPin} ${p.distance} mi</span>
+                <span class="star">${icons.star}</span><span>${p.rating} (${p.reviews})</span>
+                <span>${icons.clock} ${p.availability}</span>
+              </div>
+              <span class="match-badge">Match: ${p.score}%</span>
+              <span class="distance-badge">${p.distance} miles</span>
+              <button class="referral-btn" onclick="submitReferral(${p.id})">Request Appointment</button>
+            </div>
+          `).join('')}
+          ${!state.zipStatus ? `
+            <div style="text-align:center;padding:40px 20px;color:var(--text-3)">
+              <p style="font-size:14px">Enter your ZIP code above to see matched providers</p>
+            </div>
+          ` : ''}
+        </div>
+      ` : `
+        <div style="background:var(--red-bg);border:2px solid var(--red-border);border-radius:16px;padding:20px;text-align:center">
+          <p style="font-size:15px;font-weight:700;color:#991b1b;margin-bottom:8px">Please seek immediate care</p>
+          <p style="font-size:14px;color:#991b1b">Call <strong>911</strong> or visit your nearest emergency room.</p>
+        </div>
+      `}
+      <p style="text-align:center;color:var(--text-3);font-size:11px;margin-top:24px;line-height:1.5">
+        This assessment is for educational purposes only and does not constitute medical advice or diagnosis.
+      </p>
+    ` : ''}
+    </div>
+  </div>`;
+
+  // Confirmation
+  const sp = state.selectedProvider;
+  html += `<div class="screen ${state.screen==='confirmation'?'active':''}">
+    <div class="scroll-content" style="display:flex;flex-direction:column;justify-content:center;min-height:100vh;min-height:100dvh">
+    ${sp ? `
+      <div style="text-align:center">
+        <div class="confirm-icon">${icons.check}</div>
+        <h2 style="font-size:24px;font-weight:800;margin-bottom:8px">Referral Sent!</h2>
+        <p style="color:var(--text-2);font-size:14px;max-width:300px;margin:0 auto 28px;line-height:1.6">
+          Your information has been shared with the provider. They'll reach out to schedule your visit.
+        </p>
+      </div>
+      <div class="confirm-card">
+        <h3>${sp.name}</h3>
+        <div class="spec">${sp.specialty}</div>
+        <div class="confirm-detail">${icons.mapPin} ${sp.distance} miles away</div>
+        <div class="confirm-detail">${icons.clock} ${sp.availability} availability</div>
+        <div class="confirm-detail"><span class="star">${icons.star}</span> ${sp.rating} rating (${sp.reviews} reviews)</div>
+      </div>
+      <div class="tip-box">
+        <p>💡 Bring a summary of your symptoms to your appointment — it helps providers understand your situation quickly.</p>
+      </div>
+      <button class="outline-btn" onclick="resetApp()">Start New Assessment</button>
+      <p style="text-align:center;color:var(--text-3);font-size:11px;margin-top:20px;line-height:1.5">
+        This referral is not a medical appointment confirmation. The provider will contact you to schedule.
+      </p>
+    ` : ''}
+    </div>
+  </div>`;
+
+  app.innerHTML = html;
+}
+
+// ---- NAVIGATION ----
+function go(screen) {
+  state.screen = screen;
+  render();
+}
+
+function selectRegion(id) {
+  state.region = id;
+  state.currentQ = 0;
+  state.symptoms = {};
+  go('symptoms');
+}
+
+function answerSymptom(value) {
+  const q = QUESTIONS[state.currentQ];
+  state.symptoms[q.id] = value;
+  if (state.currentQ < QUESTIONS.length - 1) {
+    state.currentQ++;
+    render();
+  } else {
+    go('redflags');
+  }
+}
+
+function symptomBack() {
+  if (state.currentQ > 0) { state.currentQ--; render(); }
+  else go('region');
+}
+
+function rfBack() {
+  state.currentQ = QUESTIONS.length - 1;
+  go('symptoms');
+}
+
+function toggleFlag(id) {
+  state.redFlags[id] = !state.redFlags[id];
+  render();
+}
+
+function getResults() {
+  state.triage = runTriage(state.region, state.symptoms, state.redFlags);
+  state.providers = [];
+  state.zipStatus = null;
+  state.zipLocation = null;
+  state.zipcode = '';
+  go('results');
+}
+
+function searchZip() {
+  const zip = state.zipcode.trim();
+  if (zip.length < 3) { state.zipStatus = 'error'; render(); return; }
+
+  const loc = lookupZip(zip);
+  if (!loc) {
+    state.zipStatus = 'error';
+    state.providers = [];
+    render();
+    return;
+  }
+
+  state.zipLocation = loc;
+  state.zipStatus = 'success';
+
+  // Generate providers near this location
+  const allProviders = generateProviders(loc.lat, loc.lng, loc.state);
+
+  // Score and rank them against triage result
+  state.providers = scoreAndRank(allProviders, state.triage, loc.lat, loc.lng);
+
+  render();
+}
+
+function submitReferral(providerId) {
+  state.selectedProvider = state.providers.find(p => p.id === providerId);
+  go('confirmation');
+}
+
+function resetApp() {
+  state.screen = 'welcome';
+  state.region = null;
+  state.currentQ = 0;
+  state.symptoms = {};
+  state.redFlags = {};
+  state.triage = null;
+  state.providers = [];
+  state.zipcode = '';
+  state.zipLocation = null;
+  state.zipStatus = null;
+  state.selectedProvider = null;
+  render();
+}
+
+// Boot
+render();
+</script>
+</body>
+</html>
